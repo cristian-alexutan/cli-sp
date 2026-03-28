@@ -1,6 +1,6 @@
 from client.spotify_launcher import launch_spotify
 from client.client import Client
-from app.gui import MainWindow
+from app.mainwindow import MainWindow
 from dotenv import load_dotenv
 
 def main():

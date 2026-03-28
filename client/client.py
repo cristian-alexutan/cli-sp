@@ -58,12 +58,15 @@ class Client:
 
         return Song(artists, song_name, album, progress, duration, is_playing)
 
+    def get_volume_percent(self) -> int:
+        return self.__client.current_playback()['device']['volume_percent']
+
     def volume_up(self):
-        current = self.__client.current_playback()['device']['volume_percent'] // 10 * 10
+        current = self.get_volume_percent()
         to_set = min(current + 10, 100)
         self.__client.volume(volume_percent=to_set)
 
     def volume_down(self):
-        current = self.__client.current_playback()['device']['volume_percent'] // 10 * 10
+        current = self.get_volume_percent()
         to_set = max(current - 10, 0)
         self.__client.volume(volume_percent=to_set)

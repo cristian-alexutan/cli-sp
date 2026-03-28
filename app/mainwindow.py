@@ -1,49 +1,39 @@
 from textual.app import App
-from textual.widgets import Footer, Static
+from textual.containers import Horizontal
+from textual.widgets import Footer
 from textual.binding import Binding
-from textual.reactive import reactive
 
 from client.client import Client, Song
-
-class NowPlayingWidget(Static):
-    song: reactive[Song | None] = reactive(None)
-
-    def render(self) -> str:
-        if self.song is None:
-            return "nothing is playing at the moment"
-
-        # test
-
-        progress_sec = self.song.timestamp // 1000
-        duration_sec = self.song.length // 1000
-
-        progress_str = f"{progress_sec // 60}:{progress_sec % 60:02d}"
-        duration_str = f"{duration_sec // 60}:{duration_sec % 60:02d}"
-
-        time_part = f"{progress_str} / {duration_str}"
-        song_part = f"{self.song.title} - "
-        artist_part = ', '.join(self.song.artists)
-
-        line1 = f"{time_part} {song_part}{artist_part}"
-
-        artist_start_col = len(time_part) + 1
-
-        status = "(paused)" if not self.song.is_playing else ""
-
-        if status:
-            gap = max(1, artist_start_col - len(status))
-            line2 = f"{status}{' ' * gap}{self.song.album}"
-        else:
-            line2 = f"{' ' * artist_start_col}{self.song.album}"
-
-        return f"{line1}\n{line2}"
-
+from app.nowplaying import NowPlayingWidget
+from app.volume import VolumeWidget
 
 class MainWindow(App):
     CSS = """
-    NowPlayingWidget {
+    #bottom-bar {
         dock: bottom;
-        height: 4; 
+        height: 4;
+        layout: horizontal;
+        background: #3c3836;
+        color: #fbf1c7
+    }
+        
+    NowPlayingWidget {
+        width: 1fr;
+        height: 100%;
+        padding: 0 1;
+        content-align: left top;
+    }
+
+    VolumeWidget {
+        width: auto;
+        height: 100%;
+        padding: 0 1;
+        content-align: right middle;
+    }
+    
+    Footer {
+        background: #282828;
+        color: white;
     }
     """
 
@@ -60,29 +50,42 @@ class MainWindow(App):
         super().__init__(**kwargs)
         self._client = client
         self.now_playing = NowPlayingWidget()
+        self.volume_widget = VolumeWidget()
 
     def compose(self):
-        yield self.now_playing
+        with Horizontal(id="bottom-bar"):
+            yield self.now_playing
+            yield self.volume_widget
         yield Footer()
 
     def on_mount(self) -> None:
         self.update_now_playing()
+        self.update_volume()
         self.set_interval(1, self.update_now_playing)
+        self.set_interval(0.25, self.update_volume)
 
     def update_now_playing(self):
         self.now_playing.song = self._client.get_currently_playing()
 
+    def update_volume(self):
+        self.volume_widget.volume = self._client.get_volume_percent()
+
     def action_toggle_playback(self) -> None:
         self._client.toggle_playback()
+        self.update_now_playing()
 
     def action_previous(self) -> None:
         self._client.previous_track()
+        self.update_now_playing()
 
     def action_skip(self) -> None:
         self._client.skip_track()
+        self.update_now_playing()
 
     def action_volume_up(self) -> None:
         self._client.volume_up()
+        self.update_volume()
 
     def action_volume_down(self) -> None:
         self._client.volume_down()
+        self.update_volume()

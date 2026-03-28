@@ -18,13 +18,4 @@ def create_client():
 		scope=scope
 	)
 
-	sp = spotipy.Spotify(auth_manager = oauth)
-
-	result = sp.current_playback()
-
-	print(result['device'])
-
-	return sp
-
-if __name__ == '__main__':
-	sp = create_client()
+	return spotipy.Spotify(auth_manager = oauth)
