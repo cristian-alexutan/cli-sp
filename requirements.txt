@@ -1,0 +1,4 @@
+spotipy~=2.26.0
+dotenv~=0.9.9
+python-dotenv~=1.2.2
+textual~=8.2.0
