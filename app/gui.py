@@ -12,6 +12,8 @@ class NowPlayingWidget(Static):
         if self.song is None:
             return "nothing is playing at the moment"
 
+        # test
+
         progress_sec = self.song.timestamp // 1000
         duration_sec = self.song.length // 1000
 
