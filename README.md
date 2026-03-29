@@ -40,7 +40,7 @@ pip install -r requirements.txt
 
 ### 3. create a Spotify developer app
 
-Go to [developer.spotify.com/dashboard](https://developer.spotify.com/dashboard), create an app, and add a redirect URI (e.g. `http://localhost:8888/callback`).
+Go to [developer.spotify.com/dashboard](https://developer.spotify.com/dashboard), create an app, add a redirect URI (e.g. `http://127.0.0.1:8888/callback`), and select Web API.
 
 ### 4. configure environment variables
 
