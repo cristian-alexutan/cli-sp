@@ -44,7 +44,7 @@ Go to [developer.spotify.com/dashboard](https://developer.spotify.com/dashboard)
 
 ### 4. configure environment variables
 
-Create a `.env` file in the project root, following the format of `.env.example`:
+Create a `.env` file in the project root, following the format of `.env.example`.
 
 ---
 
