@@ -55,7 +55,7 @@ class MainWindow(App):
         self.update_now_playing()
         self.update_volume()
         self.set_interval(1, self.update_now_playing)
-        self.set_interval(0.25, self.update_volume)
+        self.set_interval(1, self.update_volume)
         self.set_focus(self.library_widget)
 
     def update_now_playing(self):
