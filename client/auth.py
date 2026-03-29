@@ -4,7 +4,7 @@ import spotipy
 from spotipy.oauth2 import SpotifyOAuth
 
 def create_client():
-	scope = 'user-read-currently-playing user-modify-playback-state user-read-playback-state'
+	scope = 'user-read-currently-playing user-modify-playback-state user-read-playback-state playlist-read-private user-library-read'
 
 	dotenv.load_dotenv()
 	client_id = os.getenv('CLIENT_ID')
@@ -19,3 +19,6 @@ def create_client():
 	)
 
 	return spotipy.Spotify(auth_manager = oauth)
+
+if __name__ == '__main__':
+	sp = create_client()
