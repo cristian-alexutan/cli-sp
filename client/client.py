@@ -80,11 +80,19 @@ class Client:
         for playlist in result['items']:
             playlists.append({'name': playlist['name'], 'uri': playlist['uri']})
 
-        result = self.__client.current_user_saved_albums(limit=15)
+        result = self.__client.current_user_saved_albums(limit=10)
 
         albums = []
         for album in result['items']:
             artists = ', '.join(artist['name'] for artist in album['album']['artists'])
             albums.append({'name': album['album']['name'], 'artists': artists, 'uri': album['album']['uri']})
 
-        return playlists, albums
+        return albums, playlists
+
+    def play_album(self, album_uri: str) -> None:
+        self.__client.start_playback(context_uri=album_uri)
+        self.__client.shuffle(False)
+
+    def play_playlist_shuffle(self, playlist_uri: str) -> None:
+        self.__client.start_playback(context_uri=playlist_uri)
+        self.__client.shuffle(True)

@@ -8,8 +8,6 @@ def main():
     sp = Client()
     sp.pass_to_clisp()
 
-    sp.get_library()
-
     app = MainWindow(sp)
     app.run()
 

@@ -22,9 +22,9 @@ class NowPlayingWidget(Static):
         artists_part = ", ".join(self.song.details.artists)
         album_part = self.song.details.album
 
-        artist_start_col = len(time_part) + 1
+        artist_start_col = len(time_part) + 5
 
-        line1 = f"{time_part} {title_part}"
+        line1 = f"{time_part}     {title_part}"
 
         paused = "(paused)" if not self.song.is_playing else ""
         if paused:
