@@ -1,4 +1,4 @@
-import dotenv
+from dotenv import load_dotenv
 import os
 import spotipy
 from spotipy.oauth2 import SpotifyOAuth
@@ -6,7 +6,7 @@ from spotipy.oauth2 import SpotifyOAuth
 def create_client():
 	scope = 'user-read-currently-playing user-modify-playback-state user-read-playback-state playlist-read-private user-library-read'
 
-	dotenv.load_dotenv()
+	load_dotenv()
 	client_id = os.getenv('CLIENT_ID')
 	client_secret = os.getenv('CLIENT_SECRET')
 	redirect_url = os.getenv('REDIRECT_URL')
