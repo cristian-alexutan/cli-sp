@@ -43,9 +43,6 @@ class LibraryWidget(ListView):
             self.append(ListItem(Label("No playlists")))
 
     def play_selected(self, client) -> bool:
-        with open('debug.log', 'a') as f:
-            print(f"selected index is: {self.index}", file=f)
-
         if self.index is None or self.index < 0:
             return False
 
