@@ -51,7 +51,7 @@ Create a `.env` file in the project root, following the format of `.env.example`
 ## running
 
 ```bash
-python -m spotify_tui
+python -m cli-sp
 ```
 
 On first run, a browser window will open asking you to authorize the app. After that, a `.cache` file will store your token locally.
