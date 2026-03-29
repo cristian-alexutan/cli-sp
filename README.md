@@ -1,4 +1,4 @@
-# spotify-tui
+# cli-sp
 
 A terminal-based Spotify client built with [Textual](https://github.com/Textualize/textual) and [Spotipy](https://github.com/spotipy-dev/spotipy). Requires an active Spotify Premium account.
 
