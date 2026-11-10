@@ -68,6 +68,20 @@ class Client:
         if self.on_error is not None:
             self.on_error(message)
 
+    MAX_PAGES = 40  # safety cap: 40 pages x 50 items = 2000 per list
+
+    def _all_items(self, page: dict | None) -> list:
+        """Collect the items of a paginated response, following `next` links."""
+        items = []
+        for _ in range(self.MAX_PAGES):
+            if not page:
+                break
+            items.extend(page.get('items') or [])
+            if not page.get('next'):
+                break
+            page = self.__client.next(page)
+        return items
+
     def _playback_state(self) -> dict | None:
         return self.__client.current_playback(additional_types='track,episode')
 
@@ -142,18 +156,14 @@ class Client:
 
     @api_call()
     def get_library(self) -> tuple[list, list] | None:
-        result = self.__client.current_user_playlists() or {}
-
         playlists = []
-        for playlist in result.get('items') or []:
+        for playlist in self._all_items(self.__client.current_user_playlists(limit=50)):
             if not playlist:
                 continue
             playlists.append({'name': playlist.get('name') or '', 'uri': playlist['uri']})
 
-        result = self.__client.current_user_saved_albums(limit=10) or {}
-
         albums = []
-        for saved in result.get('items') or []:
+        for saved in self._all_items(self.__client.current_user_saved_albums(limit=50)):
             album = (saved or {}).get('album')
             if not album:
                 continue
