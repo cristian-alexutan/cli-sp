@@ -50,17 +50,47 @@ VolumeWidget {
 
 LibraryWidget {
     height: 1fr;
+    background: #282828;
+}
+
+LibraryWidget ContentTabs {
+    background: #282828;
+}
+
+LibraryWidget ContentTab {
+    color: #a89984;
+    padding: 0 1;
+}
+
+LibraryWidget ContentTab.-active {
+    color: #8ec07c;
+    text-style: bold;
+}
+
+LibraryWidget Underline > .underline--bar {
+    color: #8ec07c;
+    background: #504945;
+}
+
+#library-tabs, LibraryWidget ContentSwitcher, LibraryWidget TabPane {
+    height: 1fr;
+    padding: 0;
+}
+
+LibraryWidget ListView {
+    height: 1fr;
     padding: 0 1;
     color: #fbf1c7;
+    background: #282828;
     scrollbar-size: 0 0;
 }
 
-LibraryWidget > ListItem {
+LibraryWidget ListItem {
     color: #fbf1c7;
     background: #282828;
 }
 
-LibraryWidget > ListItem.-highlight {
+LibraryWidget ListItem.-highlight {
     background: transparent;
     color: #8ec07c;
 }

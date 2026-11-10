@@ -20,6 +20,8 @@ class MainWindow(App):
         Binding("space", "toggle_playback", "play/pause"),
         Binding("h", "previous", "prev"),
         Binding("l", "skip", "skip"),
+        # priority: Textual binds tab to focus-next by default
+        Binding("tab", "switch_library_tab", "albums/playlists", priority=True),
         Binding("j", "cursor_down", "down"),
         Binding("k", "cursor_up", "up"),
         Binding("J", "volume_down", "vol-"),
@@ -71,7 +73,7 @@ class MainWindow(App):
         self.refresh_queue()
         self.poll_playback()
         self.set_interval(1, self.poll_playback)
-        self.set_focus(self.library_widget)
+        self.library_widget.focus_list()
 
     # -- errors ------------------------------------------------------------
 
@@ -184,21 +186,24 @@ class MainWindow(App):
     def action_volume_down(self) -> None:
         self._change_volume(-10)
 
+    def action_switch_library_tab(self) -> None:
+        self.library_widget.switch_tab()
+
     def action_cursor_down(self) -> None:
-        self.library_widget.action_cursor_down()
+        self.library_widget.cursor_down()
 
     def action_cursor_up(self) -> None:
-        self.library_widget.action_cursor_up()
+        self.library_widget.cursor_up()
 
     def on_list_view_selected(self, event: ListView.Selected) -> None:
-        if event.list_view is not self.library_widget:
+        if not self.library_widget.owns(event.list_view):
             return
 
         entry = self.library_widget.selected_entry()
         if entry is None:
             return
 
-        if entry["kind"] == "album":
+        if entry["kind"] == "albums":
             self._control(self._client.play_album, entry["uri"], refresh_queue=True)
         else:
             self._control(self._client.play_playlist_shuffle, entry["uri"], refresh_queue=True)
