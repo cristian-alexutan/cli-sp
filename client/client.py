@@ -213,3 +213,87 @@ class Client:
     def play_playlist_shuffle(self, playlist_uri: str) -> None:
         self.__client.start_playback(context_uri=playlist_uri)
         self.__client.shuffle(True)
+
+    # -- search -------------------------------------------------------------
+
+    SEARCH_LIMIT = 10  # max per type the Web API accepts for this app
+
+    @staticmethod
+    def _artist_names(obj: dict) -> str:
+        return ', '.join(a.get('name') or '' for a in obj.get('artists') or [])
+
+    def _track_rows(self, items) -> list[dict]:
+        rows = []
+        for track in items or []:
+            if not track or not track.get('uri'):
+                continue
+            album = track.get('album') or {}
+            rows.append({'name': track.get('name') or '', 'artists': self._artist_names(track),
+                         'album_uri': album.get('uri'), 'uri': track['uri']})
+        return rows
+
+    def _album_rows(self, items) -> list[dict]:
+        rows = []
+        for album in items or []:
+            if not album or not album.get('uri'):
+                continue
+            name = album.get('name') or ''
+            self._context_names.setdefault(album['uri'], name)
+            rows.append({'name': name, 'artists': self._artist_names(album), 'uri': album['uri']})
+        return rows
+
+    @api_call()
+    def search(self, query: str) -> dict | None:
+        """Tracks, albums, artists and playlists matching `query`, as plain
+        dicts. Returns None if the request failed."""
+        result = self.__client.search(q=query, type='track,album,artist,playlist',
+                                      limit=self.SEARCH_LIMIT) or {}
+
+        def items(kind):
+            return (result.get(kind) or {}).get('items') or []
+
+        artists = [{'name': a.get('name') or '', 'uri': a['uri']}
+                   for a in items('artists') if a and a.get('uri')]
+
+        playlists = []
+        for playlist in items('playlists'):
+            if not playlist or not playlist.get('uri'):
+                continue  # search returns null entries for some playlists
+            name = playlist.get('name') or ''
+            self._context_names.setdefault(playlist['uri'], name)
+            owner = (playlist.get('owner') or {}).get('display_name') or ''
+            playlists.append({'name': name, 'owner': owner, 'uri': playlist['uri']})
+
+        return {
+            'tracks': self._track_rows(items('tracks')),
+            'albums': self._album_rows(items('albums')),
+            'artists': artists,
+            'playlists': playlists,
+        }
+
+    @api_call()
+    def get_artist_view(self, artist_uri: str, artist_name: str) -> dict | None:
+        """Popular tracks and albums for an artist. The top-tracks endpoint is
+        forbidden for development-mode apps, so tracks come from a search."""
+        found = self.__client.search(q=f'artist:"{artist_name}"', type='track',
+                                     limit=self.SEARCH_LIMIT) or {}
+        tracks = [t for t in self._track_rows((found.get('tracks') or {}).get('items'))
+                  if artist_name.lower() in t['artists'].lower()]
+
+        albums = self.__client.artist_albums(artist_uri, include_groups='album,single',
+                                             limit=self.SEARCH_LIMIT) or {}
+        return {'tracks': tracks, 'albums': self._album_rows(albums.get('items'))}
+
+    @api_call()
+    def play_track_in_album(self, track_uri: str, album_uri: str | None) -> None:
+        """Play a track and keep going through the rest of its album."""
+        if album_uri:
+            self.__client.start_playback(context_uri=album_uri, offset={'uri': track_uri})
+            self.__client.shuffle(False)
+        else:
+            self.__client.start_playback(uris=[track_uri])
+
+    @api_call(default=False)
+    def add_to_queue(self, uri: str) -> bool:
+        self.__client.add_to_queue(uri)
+        return True
