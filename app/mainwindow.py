@@ -1,3 +1,5 @@
+import time
+
 from textual.app import App
 from textual.containers import Horizontal, Vertical
 from textual.widgets import Footer, Label, ListView, Rule
@@ -31,6 +33,20 @@ class MainWindow(App):
         self.library_widget = LibraryWidget()
         self.queue_widget = QueueWidget()
         self._last_song_uri: str | None = None
+        self._last_error: str | None = None
+        self._last_error_time = 0.0
+        self._client.on_error = self.show_error
+
+    ERROR_REPEAT_SEC = 15.0
+
+    def show_error(self, message: str) -> None:
+        # polling hits the same error every second; don't spam the same toast
+        now = time.monotonic()
+        if message == self._last_error and now - self._last_error_time < self.ERROR_REPEAT_SEC:
+            return
+        self._last_error = message
+        self._last_error_time = now
+        self.notify(message, severity="error", timeout=5)
 
     def compose(self):
         with Horizontal(id="main-content"):

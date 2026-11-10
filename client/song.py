@@ -12,20 +12,36 @@ class SongPlayback:
         self.is_playing = is_playing
         self.uri = uri
 
-def get_song_from_playback(json):
-    if json is None:
+def get_details_from_item(item: dict | None) -> SongDetails | None:
+    """Build SongDetails from a track or podcast episode object."""
+    if not item:
         return None
 
-    album = json['item']['album']['name']
-    song_name = json['item']['name']
+    title = item.get('name') or ''
 
-    artists = []
-    for artist in json['item']['artists']:
-        artists.append(artist['name'])
+    if item.get('type') == 'episode':
+        show = item.get('show') or {}
+        publisher = show.get('publisher') or show.get('name') or ''
+        return SongDetails([publisher] if publisher else [], title, show.get('name') or '')
 
-    progress = json['progress_ms']
-    duration = json['item']['duration_ms']
-    is_playing = json['is_playing']
-    uri = json['item']['uri']
+    album = (item.get('album') or {}).get('name') or ''
+    artists = [artist.get('name') or '' for artist in item.get('artists') or []]
+    return SongDetails(artists, title, album)
 
-    return SongPlayback(SongDetails(artists, song_name, album), progress, duration, is_playing, uri)
+def get_song_from_playback(json: dict | None) -> SongPlayback | None:
+    if not json:
+        return None
+
+    progress = json.get('progress_ms') or 0
+    is_playing = bool(json.get('is_playing'))
+    item = json.get('item')
+
+    if item is None:
+        # ads (and some unknown content) come through without an item
+        if json.get('currently_playing_type') == 'ad':
+            return SongPlayback(SongDetails([], 'Advertisement', ''), progress, 0, is_playing, None)
+        return None
+
+    details = get_details_from_item(item)
+    duration = item.get('duration_ms') or 0
+    return SongPlayback(details, progress, duration, is_playing, item.get('uri'))
