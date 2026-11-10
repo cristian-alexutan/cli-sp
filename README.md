@@ -4,6 +4,10 @@ A terminal-based Spotify client built with [Textual](https://github.com/Textuali
 
 ![screenshot](assets/screenshot.png)
 
+Press `/` to search Spotify; saved albums and playlists (♥) show up instantly:
+
+![search](assets/search.png)
+
 ---
 
 ## requirements
