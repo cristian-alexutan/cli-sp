@@ -20,6 +20,8 @@ class LibraryWidget(Vertical):
         super().__init__(**kwargs)
         self._lists = {kind: ListView(id=f"{kind}-list") for kind in self.TABS}
         self._tabs = TabbedContent(id="library-tabs")
+        self.albums: list[dict] = []
+        self.playlists: list[dict] = []
 
     def compose(self):
         with self._tabs:
@@ -37,6 +39,7 @@ class LibraryWidget(Vertical):
     # -- data -------------------------------------------------------------
 
     def set_library(self, albums: list[dict], playlists: list[dict]) -> None:
+        self.albums, self.playlists = albums, playlists
         self._fill("albums", [(f"{a['name']} - {a['artists']}", a["uri"]) for a in albums])
         self._fill("playlists", [(p["name"], p["uri"]) for p in playlists])
 
@@ -49,6 +52,16 @@ class LibraryWidget(Vertical):
         else:
             list_view.append(ListItem(Label(f"no {kind}")))
         self.get_tab(f"{kind}-tab").label = f"{kind} {len(rows)}"
+
+    def saved_matches(self, query: str) -> tuple[list[dict], list[dict]]:
+        """Saved albums and playlists whose name (or album artist) contains
+        `query`, case-insensitively. No API call."""
+        q = query.strip().lower()
+        if not q:
+            return [], []
+        albums = [a for a in self.albums if q in a["name"].lower() or q in a["artists"].lower()]
+        playlists = [p for p in self.playlists if q in p["name"].lower()]
+        return albums, playlists
 
     # -- navigation -------------------------------------------------------
 

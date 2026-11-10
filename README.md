@@ -89,9 +89,23 @@ On first run, a browser window will open asking you to authorize the app. After 
 | `h` | previous track |
 | `l` | skip track |
 | `j` / `k` | navigate library |
+| `tab` | switch between albums and playlists |
 | `J` / `K` | volume down / up |
 | `enter` | play selected album or playlist |
+| `/` | search Spotify |
 | `^q` | quit |
+
+### search popup
+
+| key | action |
+|-----|--------|
+| type | search as you type; saved albums/playlists (♥) show instantly |
+| `↓` / `ctrl+j` | move from the search box into the results |
+| `j` / `k` | navigate results (`k` at the top returns to the box) |
+| `tab` | cycle tabs: all, tracks, albums, artists, playlists |
+| `enter` | play: a track plays within its album; an artist opens their tracks and albums |
+| `a` | add the selected track to the queue |
+| `esc` | back out of an artist, or close search |
 
 ---
 

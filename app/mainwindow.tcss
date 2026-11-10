@@ -117,3 +117,86 @@ FooterKey .footer-key--key {
 FooterKey .footer-key--description {
     color: #282828;
 }
+
+/* -- search popup ------------------------------------------------------- */
+
+SearchScreen {
+    align: center middle;
+    background: #1d2021 60%;
+}
+
+#search-box {
+    width: 80%;
+    height: 75%;
+    background: #282828;
+    border: round #8ec07c;
+    border-title-color: #8ec07c;
+}
+
+#search-input {
+    background: #1d2021;
+    color: #fbf1c7;
+    border: tall #504945;
+    margin: 0 1;
+}
+
+#search-input:focus {
+    border: tall #8ec07c;
+}
+
+#search-header {
+    height: auto;
+    padding: 0 2;
+    color: #fabd2f;
+}
+
+#search-tabs, #search-tabs ContentSwitcher, #search-tabs TabPane {
+    height: 1fr;
+    padding: 0;
+}
+
+#search-tabs ContentTabs {
+    background: #282828;
+}
+
+#search-tabs ContentTab {
+    color: #a89984;
+    padding: 0 1;
+}
+
+#search-tabs ContentTab.-active {
+    color: #8ec07c;
+    text-style: bold;
+}
+
+#search-tabs Underline > .underline--bar {
+    color: #8ec07c;
+    background: #504945;
+}
+
+ResultList {
+    height: 1fr;
+    padding: 0 1;
+    background: #282828;
+    color: #fbf1c7;
+    scrollbar-size: 0 0;
+}
+
+ResultList ListItem {
+    background: #282828;
+    color: #fbf1c7;
+}
+
+ResultList:focus ListItem.-highlight {
+    background: #3c3836;
+    color: #8ec07c;
+}
+
+ResultList ListItem.-highlight {
+    background: transparent;
+    color: #8ec07c;
+}
+
+SearchScreen Footer {
+    background: #8ec07c;
+}

@@ -12,6 +12,7 @@ from app.nowplayingwidget import NowPlayingWidget
 from app.volumewidget import VolumeWidget
 from app.queuewidget import QueueWidget
 from app.librarywidget import LibraryWidget
+from app.searchscreen import SearchScreen
 
 class MainWindow(App):
     CSS_PATH = "mainwindow.tcss"
@@ -22,6 +23,7 @@ class MainWindow(App):
         Binding("l", "skip", "skip"),
         # priority: Textual binds tab to focus-next by default
         Binding("tab", "switch_library_tab", "albums/playlists", priority=True),
+        Binding("slash", "open_search", "search"),
         Binding("j", "cursor_down", "down"),
         Binding("k", "cursor_up", "up"),
         Binding("J", "volume_down", "vol-"),
@@ -158,20 +160,21 @@ class MainWindow(App):
     # -- playback control ---------------------------------------------------
 
     @work(thread=True, group="control")
-    def _control(self, command, *args, refresh_queue: bool = False) -> None:
+    def run_command(self, command, *args, refresh_queue: bool = False) -> None:
+        """Run a playback command in the background, then refresh the UI."""
         command(*args)
         self.call_from_thread(self.poll_playback)
         if refresh_queue:
             self.call_from_thread(self.refresh_queue)
 
     def action_toggle_playback(self) -> None:
-        self._control(self._client.toggle_playback)
+        self.run_command(self._client.toggle_playback)
 
     def action_previous(self) -> None:
-        self._control(self._client.previous_track)
+        self.run_command(self._client.previous_track)
 
     def action_skip(self) -> None:
-        self._control(self._client.skip_track)
+        self.run_command(self._client.skip_track)
 
     def _change_volume(self, delta: int) -> None:
         if self._volume is None:
@@ -203,6 +206,19 @@ class MainWindow(App):
     def action_volume_down(self) -> None:
         self._change_volume(-10)
 
+    def check_action(self, action: str, parameters: tuple) -> bool | None:
+        # main-screen-only keys stay out of the way while the search popup is open
+        # (tab is a priority binding, so it would otherwise fire inside the popup)
+        if action in ("switch_library_tab", "open_search"):
+            return self.screen is self.screen_stack[0]
+        return True
+
+    def action_open_search(self) -> None:
+        self.push_screen(
+            SearchScreen(self._client, self.library_widget, self.run_command),
+            callback=lambda _: self.library_widget.focus_list(),
+        )
+
     def action_switch_library_tab(self) -> None:
         self.library_widget.switch_tab()
 
@@ -221,6 +237,6 @@ class MainWindow(App):
             return
 
         if entry["kind"] == "albums":
-            self._control(self._client.play_album, entry["uri"], refresh_queue=True)
+            self.run_command(self._client.play_album, entry["uri"], refresh_queue=True)
         else:
-            self._control(self._client.play_playlist_shuffle, entry["uri"], refresh_queue=True)
+            self.run_command(self._client.play_playlist_shuffle, entry["uri"], refresh_queue=True)
