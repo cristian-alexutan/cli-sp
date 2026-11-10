@@ -13,4 +13,4 @@ class QueueWidget(ScrollableContainer):
 
         for song in songs:
             artists = ", ".join(song.artists)
-            self.mount(Label(f"{song.title} - {artists}"))
+            self.mount(Label(f"{song.title} - {artists}", markup=False))

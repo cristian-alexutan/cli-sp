@@ -59,6 +59,8 @@ class Client:
     def __init__(self):
         self.__client = create_client()
         self._lock = threading.RLock()
+        # context uri -> display name ("Album Name", "Liked Songs", ...)
+        self._context_names: dict[str, str] = {}
         self.last_error: str | None = None
         # set by the UI to display errors; called with a short message
         self.on_error: Callable[[str], None] | None = None
@@ -143,6 +145,34 @@ class Client:
         self.__client.volume(volume_percent=max(0, min(100, percent)))
 
     @api_call()
+    def get_context_name(self, context_uri: str | None) -> str | None:
+        """Name of the album/playlist/artist/show a track plays from. Cached,
+        and pre-filled from the library, so it rarely costs a request."""
+        if not context_uri:
+            return None
+        if context_uri in self._context_names:
+            return self._context_names[context_uri]
+
+        parts = context_uri.split(':')
+        kind = parts[1] if len(parts) > 2 else ''
+        if parts[-1] == 'collection':
+            name = 'Liked Songs'
+        elif kind == 'album':
+            name = (self.__client.album(context_uri) or {}).get('name')
+        elif kind == 'playlist':
+            name = (self.__client.playlist(context_uri, fields='name') or {}).get('name')
+        elif kind == 'artist':
+            name = (self.__client.artist(context_uri) or {}).get('name')
+        elif kind == 'show':
+            name = (self.__client.show(context_uri) or {}).get('name')
+        else:
+            name = None
+
+        if name:
+            self._context_names[context_uri] = name
+        return name
+
+    @api_call()
     def get_queue(self) -> list | None:
         result = self.__client.queue() or {}
 
@@ -161,6 +191,7 @@ class Client:
             if not playlist:
                 continue
             playlists.append({'name': playlist.get('name') or '', 'uri': playlist['uri']})
+            self._context_names[playlist['uri']] = playlist.get('name') or ''
 
         albums = []
         for saved in self._all_items(self.__client.current_user_saved_albums(limit=50)):
@@ -169,6 +200,7 @@ class Client:
                 continue
             artists = ', '.join(artist.get('name') or '' for artist in album.get('artists') or [])
             albums.append({'name': album.get('name') or '', 'artists': artists, 'uri': album['uri']})
+            self._context_names[album['uri']] = album.get('name') or ''
 
         return albums, playlists
 

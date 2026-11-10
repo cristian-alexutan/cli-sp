@@ -42,6 +42,7 @@ class MainWindow(App):
         self.library_widget = LibraryWidget()
         self.queue_widget = QueueWidget()
         self._last_song_uri: str | None = None
+        self._last_context_uri: str | None = None
         self._last_error: str | None = None
         self._last_error_time = 0.0
         self._polling = False
@@ -60,7 +61,8 @@ class MainWindow(App):
             yield Rule(orientation="vertical")
 
             with Vertical(id="queue-pane"):
-                yield Label("queue", id="queue-title")
+                # markup off: album/playlist names can contain [brackets]
+                yield Label("queue", id="queue-title", markup=False)
                 yield self.queue_widget
 
         with Horizontal(id="bottom-bar"):
@@ -125,6 +127,21 @@ class MainWindow(App):
         if current_uri != self._last_song_uri:
             self._last_song_uri = current_uri
             self.refresh_queue()
+
+        context_uri = song.context_uri if song else None
+        if context_uri != self._last_context_uri:
+            self._last_context_uri = context_uri
+            self._update_queue_title(context_uri)
+
+    @work(thread=True, exclusive=True, group="context")
+    def _update_queue_title(self, context_uri: str | None) -> None:
+        name = self._client.get_context_name(context_uri) if context_uri else None
+        self.call_from_thread(self._set_queue_title, context_uri, name)
+
+    def _set_queue_title(self, context_uri: str | None, name: str | None) -> None:
+        if context_uri != self._last_context_uri:
+            return  # playback moved on while we were looking the name up
+        self.query_one("#queue-title", Label).update(f"queue - {name}" if name else "queue")
 
     @work(thread=True, exclusive=True, group="queue")
     def refresh_queue(self) -> None:
