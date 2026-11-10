@@ -1,4 +1,5 @@
 from client.auth import create_client
+import os
 import time
 from client.song import SongPlayback, get_song_from_playback, SongDetails
 
@@ -7,14 +8,24 @@ class Client:
     def __init__(self):
         self.__client = create_client()
 
-    def pass_to_clisp(self):
-        for attempt in range(10):
-            devices = self.__client.devices()
-            available = devices.get('devices', [])
-            if available:
+    def pass_to_clisp(self, attempts: int = 15, require_named: bool = True) -> bool:
+        """Transfer playback to the device named SPOTIFY_DEVICE_NAME (default
+        "cli-sp", i.e. Soloist), waiting for it to register with
+        Spotify. With require_named=False (desktop app), take the first
+        available device instead."""
+        preferred = os.getenv('SPOTIFY_DEVICE_NAME', 'cli-sp').strip().lower()
+
+        for attempt in range(attempts):
+            available = self.__client.devices().get('devices', [])
+            for device in available:
+                if device['name'].strip().lower() == preferred:
+                    self.__client.transfer_playback(device['id'], force_play=False)
+                    return True
+            if available and not require_named:
                 self.__client.transfer_playback(available[0]['id'], force_play=False)
                 return True
             time.sleep(1)
+
         return False
 
     def toggle_playback(self):
