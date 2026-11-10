@@ -1,11 +1,13 @@
 import time
 
+from textual import work
 from textual.app import App
 from textual.containers import Horizontal, Vertical
 from textual.widgets import Footer, Label, ListView, Rule
 from textual.binding import Binding
 
 from client.client import Client
+from client.song import SongPlayback
 from app.nowplayingwidget import NowPlayingWidget
 from app.volumewidget import VolumeWidget
 from app.queuewidget import QueueWidget
@@ -22,8 +24,13 @@ class MainWindow(App):
         Binding("k", "cursor_up", "up"),
         Binding("J", "volume_down", "vol-"),
         Binding("K", "volume_up", "vol+"),
-        Binding("^q", "quit", "quit"),
+        Binding("ctrl+q", "quit", "quit"),
     ]
+
+    ERROR_REPEAT_SEC = 15.0
+    # ignore polled volume this long after a local change, so a poll that was
+    # already in flight doesn't make the bar jump back
+    VOLUME_HOLD_SEC = 1.5
 
     def __init__(self, client: Client, **kwargs):
         super().__init__(**kwargs)
@@ -35,18 +42,12 @@ class MainWindow(App):
         self._last_song_uri: str | None = None
         self._last_error: str | None = None
         self._last_error_time = 0.0
-        self._client.on_error = self.show_error
-
-    ERROR_REPEAT_SEC = 15.0
-
-    def show_error(self, message: str) -> None:
-        # polling hits the same error every second; don't spam the same toast
-        now = time.monotonic()
-        if message == self._last_error and now - self._last_error_time < self.ERROR_REPEAT_SEC:
-            return
-        self._last_error = message
-        self._last_error_time = now
-        self.notify(message, severity="error", timeout=5)
+        self._polling = False
+        self._volume: int | None = None
+        self._volume_hold_until = 0.0
+        self._pending_volume: int | None = None
+        self._volume_sending = False
+        self._client.on_error = self._on_client_error
 
     def compose(self):
         with Horizontal(id="main-content"):
@@ -66,53 +67,122 @@ class MainWindow(App):
         yield Footer()
 
     def on_mount(self) -> None:
-        self.update_library()
-        self.update_queue()
-        self.update_now_playing()
-        self.update_volume()
-        self.set_interval(1, self.update_now_playing)
-        self.set_interval(1, self.update_volume)
+        self.load_library()
+        self.refresh_queue()
+        self.poll_playback()
+        self.set_interval(1, self.poll_playback)
         self.set_focus(self.library_widget)
 
-    def update_now_playing(self):
-        song = self._client.get_currently_playing()
+    # -- errors ------------------------------------------------------------
+
+    def _on_client_error(self, message: str) -> None:
+        # client calls run in worker threads; hop to the UI thread
+        try:
+            self.call_from_thread(self.show_error, message)
+        except RuntimeError:
+            self.show_error(message)
+
+    def show_error(self, message: str) -> None:
+        # polling hits the same error every second; don't spam the same toast
+        now = time.monotonic()
+        if message == self._last_error and now - self._last_error_time < self.ERROR_REPEAT_SEC:
+            return
+        self._last_error = message
+        self._last_error_time = now
+        self.notify(message, severity="error", timeout=5)
+
+    # -- background data loading ------------------------------------------
+
+    def poll_playback(self) -> None:
+        if self._polling:
+            return  # previous request still in flight
+        self._polling = True
+        self._fetch_playback()
+
+    @work(thread=True, group="poll")
+    def _fetch_playback(self) -> None:
+        result = None
+        try:
+            result = self._client.get_playback()
+        finally:
+            self.call_from_thread(self._poll_done, result)
+
+    def _poll_done(self, result: tuple[SongPlayback | None, int | None] | None) -> None:
+        self._polling = False
+        if result is None:
+            return  # request failed; keep showing the last known state
+
+        song, volume = result
         self.now_playing.song = song
+
+        if volume is not None and time.monotonic() >= self._volume_hold_until:
+            self._volume = volume
+            self.volume_widget.volume = volume
 
         current_uri = song.uri if song else None
         if current_uri != self._last_song_uri:
             self._last_song_uri = current_uri
-            self.update_queue()
+            self.refresh_queue()
 
-    def update_queue(self):
+    @work(thread=True, exclusive=True, group="queue")
+    def refresh_queue(self) -> None:
         songs = self._client.get_queue()
-        self.queue_widget.set_queue(songs)
+        if songs is not None:
+            self.call_from_thread(self.queue_widget.set_queue, songs)
 
-    def update_library(self):
-        albums, playlists = self._client.get_library()
-        self.library_widget.set_library(albums, playlists)
+    @work(thread=True, exclusive=True, group="library")
+    def load_library(self) -> None:
+        library = self._client.get_library()
+        if library is not None:
+            self.call_from_thread(self.library_widget.set_library, *library)
 
-    def update_volume(self):
-        self.volume_widget.volume = self._client.get_volume_percent()
+    # -- playback control ---------------------------------------------------
+
+    @work(thread=True, group="control")
+    def _control(self, command, *args, refresh_queue: bool = False) -> None:
+        command(*args)
+        self.call_from_thread(self.poll_playback)
+        if refresh_queue:
+            self.call_from_thread(self.refresh_queue)
 
     def action_toggle_playback(self) -> None:
-        self._client.toggle_playback()
-        self.update_now_playing()
+        self._control(self._client.toggle_playback)
 
     def action_previous(self) -> None:
-        self._client.previous_track()
-        self.update_now_playing()
+        self._control(self._client.previous_track)
 
     def action_skip(self) -> None:
-        self._client.skip_track()
-        self.update_now_playing()
+        self._control(self._client.skip_track)
+
+    def _change_volume(self, delta: int) -> None:
+        if self._volume is None:
+            return
+        self._volume = max(0, min(100, self._volume + delta))
+        self._volume_hold_until = time.monotonic() + self.VOLUME_HOLD_SEC
+        self.volume_widget.volume = self._volume  # update instantly
+
+        # one request at a time; rapid presses collapse into the latest value
+        self._pending_volume = self._volume
+        if not self._volume_sending:
+            self._volume_sending = True
+            self._send_volume(self._pending_volume)
+
+    @work(thread=True, group="volume")
+    def _send_volume(self, percent: int) -> None:
+        self._client.set_volume(percent)
+        self.call_from_thread(self._volume_sent, percent)
+
+    def _volume_sent(self, percent: int) -> None:
+        if self._pending_volume != percent:
+            self._send_volume(self._pending_volume)  # changed while sending
+        else:
+            self._volume_sending = False
 
     def action_volume_up(self) -> None:
-        self._client.volume_up()
-        self.update_volume()
+        self._change_volume(10)
 
     def action_volume_down(self) -> None:
-        self._client.volume_down()
-        self.update_volume()
+        self._change_volume(-10)
 
     def action_cursor_down(self) -> None:
         self.library_widget.action_cursor_down()
@@ -124,7 +194,11 @@ class MainWindow(App):
         if event.list_view is not self.library_widget:
             return
 
-        played = self.library_widget.play_selected(self._client)
-        if played:
-            self.update_now_playing()
-            self.update_queue()
+        entry = self.library_widget.selected_entry()
+        if entry is None:
+            return
+
+        if entry["kind"] == "album":
+            self._control(self._client.play_album, entry["uri"], refresh_queue=True)
+        else:
+            self._control(self._client.play_playlist_shuffle, entry["uri"], refresh_queue=True)

@@ -1,5 +1,6 @@
 import functools
 import os
+import threading
 import time
 from typing import Callable
 
@@ -45,7 +46,8 @@ def api_call(default=None):
         @functools.wraps(method)
         def wrapper(self, *args, **kwargs):
             try:
-                return method(self, *args, **kwargs)
+                with self._lock:
+                    return method(self, *args, **kwargs)
             except (SpotifyException, requests.RequestException) as error:
                 self.report_error(describe_error(error))
                 return default() if callable(default) else default
@@ -56,6 +58,7 @@ def api_call(default=None):
 class Client:
     def __init__(self):
         self.__client = create_client()
+        self._lock = threading.RLock()
         self.last_error: str | None = None
         # set by the UI to display errors; called with a short message
         self.on_error: Callable[[str], None] | None = None
@@ -111,32 +114,22 @@ class Client:
         self.__client.next_track()
 
     @api_call()
-    def get_currently_playing(self) -> SongPlayback | None:
-        return get_song_from_playback(self._playback_state())
+    def get_playback(self) -> tuple[SongPlayback | None, int | None] | None:
+        """Current song and device volume from a single API call. Returns None
+        if the request failed (so callers can keep showing the last state)."""
+        state = self._playback_state()
+        if not state:
+            return None, None
 
-    @api_call(default=0)
-    def get_volume_percent(self) -> int:
-        result = self._playback_state()
-        if not result:
-            return 0
-
-        device = result.get('device') or {}
-        return device.get('volume_percent') or 0
+        device = state.get('device') or {}
+        return get_song_from_playback(state), device.get('volume_percent')
 
     @api_call()
-    def volume_up(self):
-        current = self.get_volume_percent()
-        to_set = min(current + 10, 100)
-        self.__client.volume(volume_percent=to_set)
+    def set_volume(self, percent: int) -> None:
+        self.__client.volume(volume_percent=max(0, min(100, percent)))
 
     @api_call()
-    def volume_down(self):
-        current = self.get_volume_percent()
-        to_set = max(current - 10, 0)
-        self.__client.volume(volume_percent=to_set)
-
-    @api_call(default=list)
-    def get_queue(self) -> list:
+    def get_queue(self) -> list | None:
         result = self.__client.queue() or {}
 
         songs = []
@@ -147,8 +140,8 @@ class Client:
 
         return songs
 
-    @api_call(default=lambda: ([], []))
-    def get_library(self) -> tuple[list, list]:
+    @api_call()
+    def get_library(self) -> tuple[list, list] | None:
         result = self.__client.current_user_playlists() or {}
 
         playlists = []

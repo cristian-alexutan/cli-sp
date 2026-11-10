@@ -42,17 +42,14 @@ class LibraryWidget(ListView):
         else:
             self.append(ListItem(Label("No playlists")))
 
-    def play_selected(self, client) -> bool:
+    def selected_entry(self) -> dict | None:
+        """The highlighted album/playlist as {"kind", "uri"}, or None for
+        headers and placeholder rows."""
         if self.index is None or self.index < 0:
-            return False
+            return None
 
         entry_index = self._row_to_entry_index.get(self.index)
         if entry_index is None:
-            return False
+            return None
 
-        entry = self._entries[entry_index]
-        if entry["kind"] == "album":
-            client.play_album(entry["uri"])
-        else:
-            client.play_playlist_shuffle(entry["uri"])
-        return True
+        return self._entries[entry_index]
